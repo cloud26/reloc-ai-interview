@@ -1,5 +1,7 @@
 build/
 data/
 results/
+.git/
+docs/interviewer.md
 *.log
 *.csv

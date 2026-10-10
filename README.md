@@ -4,15 +4,18 @@
 
 ## 快速开始
 
-推荐 Docker（首次构建需能下载 Ubuntu 软件包）：
+推荐 Docker。依赖已预装在 `intermission/reloc-ai-interview-base:ubuntu22.04-v1` 中；首次需要拉取该基础镜像，之后修改题目代码只需重新编译项目，不再安装 PCL 等系统包：
 
 ```bash
 git clone https://github.com/cloud26/reloc-ai-interview.git
 cd reloc-ai-interview
+docker pull intermission/reloc-ai-interview-base:ubuntu22.04-v1
 docker build -t reloc-ai-interview:latest .
 ./scripts/bench.sh data/public/hefei docker
 ./scripts/bench.sh data/public/funiu docker
 ```
+
+面试现场建议提前在候选机器执行上面的 `docker pull`。`Dockerfile.base` 记录基础镜像的依赖清单，日常做题无需运行它；候选代码由仓库的 `Dockerfile` 单独编译。基础镜像仅含工具与依赖，不含题目代码或评测数据。
 
 也可在安装了 PCL、Eigen3、yaml-cpp 的 Linux 环境直接构建：
 

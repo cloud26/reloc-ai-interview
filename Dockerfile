@@ -1,10 +1,4 @@
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates cmake g++ make \
-    libpcl-dev libeigen3-dev libyaml-cpp-dev libtbb-dev libomp-dev \
-    && rm -rf /var/lib/apt/lists/*
+FROM intermission/reloc-ai-interview-base:ubuntu22.04-v1
 
 WORKDIR /project
 COPY . /project

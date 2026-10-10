@@ -1,0 +1,10 @@
+/build/
+/data/*
+!/data/public/
+/results/
+*.sc.v*
+benchmark_result.csv
+*.log
+/docs/interviewer.md
+*.tar.gz
+.DS_Store

@@ -12,6 +12,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace {
@@ -25,6 +26,7 @@ struct Row {
     bool localized = false;
     bool success = false;
     double position_error = 0.0;
+    double dx = 0.0, dy = 0.0;
     double yaw_error = 0.0;
     double fitness = 0.0;
     double sc_distance = 0.0;
@@ -103,16 +105,39 @@ int main(int argc, char** argv) {
         }
         const YAML::Node yaml = YAML::LoadFile(config_path);
         BaselineConfig config;
-        config.sc.radius = yaml["sc_max_radius"].as<double>();
-        config.sc.rings = yaml["sc_num_rings"].as<int>();
-        config.sc.sectors = yaml["sc_num_sectors"].as<int>();
-        config.sc.intensity_weight = yaml["sc_intensity_weight"].as<double>();
-        config.grid_resolution = yaml["sc_grid_resolution"].as<double>();
-        config.sensor_height = yaml["sc_sensor_height"].as<double>();
-        config.sc_top_k = yaml["sc_top_k"].as<int>();
-        config.gicp_voxel = yaml["gicp_voxel"].as<double>();
-        config.gicp_correspondence = yaml["gicp_max_correspondence"].as<double>();
-        config.gicp_iterations = yaml["gicp_max_iterations"].as<int>();
+        const auto read = [&yaml](const char* key, auto& value) {
+            if (yaml[key]) value = yaml[key].as<std::decay_t<decltype(value)>>();
+        };
+        read("band_min", config.band_min);
+        read("band_max", config.band_max);
+        read("floor_cell", config.floor_cell);
+        read("floor_search_radius", config.floor_search_radius);
+        read("ground_tolerance", config.ground_tolerance);
+        read("ground_dilation", config.ground_dilation);
+        read("query_max_range", config.query_max_range);
+        read("scan_voxel", config.scan_voxel);
+        read("bev_resolution", config.bev.resolution);
+        read("bev_sigma", config.bev.sigma);
+        read("bev_yaw_step_deg", config.bev.yaw_step_deg);
+        read("bev_depth", config.bev.depth);
+        read("bev_min_score", config.bev.min_score);
+        read("bev_keep_ratio", config.bev.keep_ratio);
+        read("bev_nms_distance", config.bev.nms_distance);
+        read("bev_nms_yaw_deg", config.bev.nms_yaw_deg);
+        read("bev_max_candidates", config.bev.max_candidates);
+        read("bev_time_budget_ms", config.bev.time_budget_ms);
+        read("occupancy_voxel", config.occupancy_voxel);
+        read("occupancy_dilate", config.occupancy_dilate);
+        read("gicp_voxel", config.gicp_voxel);
+        read("gicp_max_correspondence", config.gicp_correspondence);
+        read("gicp_max_iterations", config.gicp_iterations);
+        read("fine_max_correspondence", config.fine_correspondence);
+        read("fine_max_iterations", config.fine_iterations);
+        read("fine_max_range", config.fine_max_range);
+        read("inlier_distance", config.inlier_distance);
+        read("verify_candidates", config.verify_candidates);
+        read("verify_ratio", config.verify_ratio);
+        read("verify_time_budget_ms", config.verify_time_budget_ms);
 
         OfflineLocalizer localizer(config);
         const auto index_start = std::chrono::steady_clock::now();
@@ -150,6 +175,8 @@ int main(int argc, char** argv) {
                 row.reason = "reloc_failed";
             } else {
                 const Eigen::Matrix4f truth = pose(gt.map_base);
+                row.dx = estimate.pose(0, 3) - truth(0, 3);
+                row.dy = estimate.pose(1, 3) - truth(1, 3);
                 row.position_error = std::hypot(estimate.pose(0, 3) - truth(0, 3),
                                                 estimate.pose(1, 3) - truth(1, 3));
                 row.yaw_error = angleError(yaw(estimate.pose), yaw(truth));
@@ -158,7 +185,7 @@ int main(int argc, char** argv) {
             }
             results.push_back(row);
             std::cout << gt.filename << " pos=" << std::fixed << std::setprecision(3)
-                      << row.position_error << "m yaw=" << row.yaw_error << "deg"
+                      << row.position_error << "m (dx=" << row.dx << " dy=" << row.dy << ") yaw=" << row.yaw_error << "deg"
                       << " sc_rank=" << row.sc_rank << " fitness=" << row.fitness
                       << " time_ms=" << row.duration_ms << " " << row.reason << '\n';
         }

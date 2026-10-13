@@ -1,13 +1,35 @@
-# 面试起点：Scan Context 召回，然后用 GICP 验证每个候选。
+# 2D 俯视似然场分支定界全局搜索 → 3D 占据预筛重排 → 多候选 GICP 内点率验证 → 近处精配准。
 # 真值仅供 benchmark 评分。
-sc_max_radius: 30.0
-sc_num_rings: 40
-sc_num_sectors: 120
-sc_intensity_weight: 1.0  # 两种归一化特征等权；不预置针对某张图调出的权重
-sc_grid_resolution: 1.0
-sc_sensor_height: 0.5
-sc_top_k: 10
+band_min: 0.3            # 相对局部地面的结构高度带 [m]
+band_max: 2.0
+floor_cell: 1.0          # 地图局部地面栅格 [m]
+floor_search_radius: 3.0
+ground_tolerance: 0.15   # 观测到地面的格子（膨胀后）才作为候选位置；<=0 关闭
+ground_dilation: 1.0
+query_max_range: 40.0
+scan_voxel: 0.2          # query 结构点 2D 体素 [m]
 
-gicp_voxel: 0.25
-gicp_max_correspondence: 1.5
-gicp_max_iterations: 50
+bev_resolution: 0.1
+bev_sigma: 0.2
+bev_yaw_step_deg: 1.0
+bev_depth: 6
+bev_min_score: 0.3
+bev_keep_ratio: 0.9      # 收集 >= 0.9 * 最优分 的 2D 峰
+bev_nms_distance: 1.0
+bev_nms_yaw_deg: 10.0
+bev_max_candidates: 128
+bev_time_budget_ms: 1500 # 分支定界时间上限，超时返回已找到的候选
+
+occupancy_voxel: 0.2     # 3D 预筛占据位图
+occupancy_dilate: 1
+
+gicp_voxel: 0.2
+gicp_max_correspondence: 1.0
+gicp_max_iterations: 30
+fine_max_correspondence: 0.3
+fine_max_iterations: 30
+fine_max_range: 10.0     # 精配准只用近处点 [m]
+inlier_distance: 0.2
+verify_candidates: 6
+verify_ratio: 0.9
+verify_time_budget_ms: 2200  # 超过后不再对新候选做 GICP

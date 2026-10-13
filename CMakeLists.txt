@@ -16,6 +16,12 @@ else()
 endif()
 
 add_executable(reloc_benchmark src/reloc_benchmark.cpp src/offline_localizer.cpp)
-target_include_directories(reloc_benchmark PRIVATE src include ${PCL_INCLUDE_DIRS})
+target_include_directories(reloc_benchmark PRIVATE src ${PCL_INCLUDE_DIRS})
 target_compile_options(reloc_benchmark PRIVATE ${PCL_DEFINITIONS})
 target_link_libraries(reloc_benchmark PRIVATE ${PCL_LIBRARIES} Eigen3::Eigen ${YAML_CPP_TARGET})
+
+# OpenMP 可选：用于 2D 分支定界并行；缺失时单线程运行，结果一致。
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(reloc_benchmark PRIVATE OpenMP::OpenMP_CXX)
+endif()

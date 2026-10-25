@@ -1,0 +1,20 @@
+# 3-second query profile. Map/index construction is measured separately.
+sc_max_radius: 30.0
+sc_num_rings: 20
+sc_num_sectors: 60
+sc_intensity_weight: 1.0
+sc_grid_resolution: 1.25
+sc_sensor_height: 0.5
+
+gicp_voxel: 0.15
+gicp_max_correspondence: 0.8
+gicp_max_iterations: 35
+query_budget_ms: 2600
+coarse_candidates: 64
+fine_candidates: 3
+geometric_candidates: 32
+intensity_score_weight: 0.1
+robust_refinement: true
+sc_index_voxel: 0.3
+upright_refinement: true
+retrieval_threads: 4

@@ -1,0 +1,41 @@
+{
+  "baseline_commit": "b06cc0b",
+  "date": "2026-10-13",
+  "cpu": "Intel Xeon Platinum 8573C",
+  "visible_cpus": 9,
+  "retrieval_threads": 4,
+  "registration_threads": 1,
+  "pcl_version": "1.14.0",
+  "compiler": "GCC 13.3.0",
+  "position_threshold_m": 0.2,
+  "yaw_threshold_deg": 2,
+  "query_budget_ms": 3000,
+  "baseline_build_adjustment": "CMake enabled C for the installed PCL/VTK package; localization code unchanged",
+  "baseline_timing_note": "Some exploratory workers ran concurrently on separate available CPU cores during baseline measurement. Final optimized measurements ran sequentially without other benchmark or build processes. Baseline precision is reproducible; baseline timing comparisons are indicative.",
+  "optimized_binary_sha256": "e1cfecaf1811952e39db98677439868ca8b6390fe4911a4177de4be965f5ced6",
+  "dataset_zip_sha256": "252b28d8ba3edd33e0794a401e9a67fd9ee651234f0edac6c7f2b82e921cb404",
+  "scenes": {
+    "anhui": {
+      "baseline_map_and_index_load_ms": 11652.9,
+      "optimized_map_and_index_load_ms": 3643.92
+    },
+    "beijing": {
+      "baseline_map_and_index_load_ms": 39827.9,
+      "optimized_map_and_index_load_ms": 10026.5
+    },
+    "funiu": {
+      "baseline_map_and_index_load_ms": 48458.3,
+      "optimized_map_and_index_load_ms": 8607.49
+    },
+    "hefei": {
+      "baseline_map_and_index_load_ms": 19802.4,
+      "optimized_map_and_index_load_ms": 3278.3
+    },
+    "niuniu": {
+      "baseline_map_and_index_load_ms": 145905.0,
+      "optimized_map_and_index_load_ms": 35117.9
+    }
+  },
+  "se3_success_under_budget": 89,
+  "se3_over_budget": 0
+}

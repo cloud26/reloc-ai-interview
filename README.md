@@ -1,6 +1,10 @@
 # LiDAR 离线重定位：AI 协作面试项目
 
-这是一个独立于 ROS 和机器人工作区的 C++ 项目。给定地图 PCD 与 query PCD，程序估计每个 query 在地图中的位姿；真值只在评测器中计算误差。候选人拿到的是一个能运行的、刻意简单的起点：**Scan Context 召回 → 对 Top-K 候选各跑一次 GICP → 用 fitness 选结果**。
+这是一个独立于 ROS 和机器人工作区的 C++ 项目。给定地图 PCD 与 query PCD，程序估计每个 query 在地图中的位姿；真值只在评测器中计算误差。
+
+本分支提供 **3 秒单 query 优化版**：预归一化 Scan Context + 三维似然场双路召回 → 候选去重 → 粗 ICP 与抽样评分 → 少量候选完整评分、GICP 和稳健精修。默认最多 4 个检索线程，配准单线程；地图协方差和法向量在加载时缓存。评测成功阈值仍为 0.2 m / 2°。
+
+默认 `config/localizer.yaml` 对最终精修施加水平姿态约束，适用于本次近似平地数据。需要保留俯仰、横滚时使用 `config/se3.yaml`。实测、逐例差异、已知失败与复现方法见 [3 秒实验报告](docs/benchmark-3s.md)。原始 SC + Top-K GICP 基线仍可在提交 `b06cc0b` 复现，原说明见 [公开基线](docs/public-baseline.md)。
 
 ## 快速开始
 
@@ -41,6 +45,14 @@ AppleClang 未配置 OpenMP 时，PCL 可能打印 `OpenMP is not available`；�
 RELOC_EXPERIMENT_ID=idea01 ./scripts/bench.sh data/public/hefei native
 ```
 
+完整数据目录可顺序跑一遍，脚本会保留每个场景的原始 CSV、日志以及时间分位数：
+
+```bash
+python3 scripts/run_benchmark_suite.py /path/to/data/public --experiment-id optimized01
+RELOC_CONFIG="$PWD/config/se3.yaml" RELOC_EXPERIMENT_ID=se3 ./scripts/bench.sh data/public/hefei native
+ctest --test-dir build --output-on-failure
+```
+
 若要比较参数，可把修改后的 YAML 放在独立文件，并用 `RELOC_CONFIG=/path/to/experiment.yaml` 指定；不要覆盖默认配置后把不同实验的结果混在一起。
 
 ## 面试任务
@@ -53,6 +65,6 @@ RELOC_EXPERIMENT_ID=idea01 ./scripts/bench.sh data/public/hefei native
 
 每个数据集目录包含一个地图 `*.pcd`、`queries/*.pcd`、`groundtruth.csv`。CSV 每行有 query 文件名、`map→base` 真值和记录时的 `odom→base` 位姿，角度为度。评测器先用记录时的 odom 位姿将 query 转回 base 系，再调用定位算法；算法无法访问 map 真值。
 
-公开集为合肥和伏牛。默认成功阈值是水平位置误差不超过 0.2 m 且 yaw 误差不超过 2°。`wrong_place`、`imprecise`、`reloc_failed` 要分别分析。首次地图/index 加载时间与逐 query 时间分开报告，跨机器耗时不能直接比较。
+公开集为合肥和伏牛。默认成功阈值是水平位置误差不超过 0.2 m 且 yaw 误差不超过 2°。`wrong_place`、`imprecise`、`reloc_failed` 要分别分析。`success` 保留原始精度成绩，`success_under_budget` 另外报告同时达到精度阈值和 3 秒限制的数量；可用 `--time-budget-ms` 改变时间统计上限。首次地图/index 加载时间与逐 query 时间分开报告，跨机器耗时不能直接比较。
 
 源码入口见 [代码地图](docs/architecture.md)，与机器人生产版的边界见 [提取说明](docs/extraction.md)，本机起点见 [公开基线](docs/public-baseline.md)。真实地图可能包含现场信息，外发前须确认分发权限。

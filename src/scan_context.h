@@ -15,6 +15,8 @@ struct ScanContext {
     double radius = 30.0;
     double intensity_weight = 1.0;
 
+    double yawForShift(int shift) const { return -double(shift) * (2.0 * M_PI / sectors); }
+
     Eigen::MatrixXf describe(const pcl::PointCloud<pcl::PointXYZI>& cloud) const {
         Eigen::MatrixXf result = Eigen::MatrixXf::Zero(rings, sectors);
         Eigen::MatrixXf intensity_sum = Eigen::MatrixXf::Zero(rings, sectors);
@@ -68,27 +70,42 @@ struct ScanContext {
         return result;
     }
 
-    // 返回距离和列位移。位移的符号由下面的索引方式决定，调用方不应再猜测。
-    std::pair<double, int> compare(const Eigen::MatrixXf& query,
-                                   const Eigen::MatrixXf& map) const {
-        double best = std::numeric_limits<double>::infinity();
+    // Normalize once, then evaluate all cyclic shifts through one matrix product.
+    Eigen::MatrixXf normalize(const Eigen::MatrixXf& input) const {
+        Eigen::MatrixXf result = input;
+        for (int c = 0; c < sectors; ++c) {
+            const float norm = result.col(c).norm();
+            if (norm > 0) result.col(c) /= norm;
+        }
+        return result;
+    }
+
+    std::pair<double, int> compareNormalized(const Eigen::MatrixXf& query,
+                                            const Eigen::MatrixXf& map) const {
+        const Eigen::MatrixXf similarities = query.transpose() * map;
+        std::vector<bool> qo(sectors), mo(sectors);
+        for (int c = 0; c < sectors; ++c) {
+            qo[c] = query.col(c).squaredNorm() > 0;
+            mo[c] = map.col(c).squaredNorm() > 0;
+        }
+        double best = 1.0;
         int best_shift = 0;
         for (int shift = 0; shift < sectors; ++shift) {
-            double sum = 0.0;
-            int valid = 0, occupied_union = 0;
-            for (int col = 0; col < sectors; ++col) {
-                const auto q = query.col(col);
-                const auto m = map.col((col - shift + sectors) % sectors);
-                const double qn = q.norm(), mn = m.norm();
-                if (qn > 0.0 || mn > 0.0) ++occupied_union;
-                if (qn == 0.0 || mn == 0.0) continue;
-                sum += q.dot(m) / (qn * mn);
-                ++valid;
+            double sum = 0;
+            int occupied_union = 0;
+            for (int c = 0; c < sectors; ++c) {
+                const int m = (c - shift + sectors) % sectors;
+                occupied_union += qo[c] || mo[m];
+                sum += similarities(c, m);
             }
-            const double distance = valid && occupied_union
-                ? 1.0 - (sum / valid) * (static_cast<double>(valid) / occupied_union) : 1.0;
+            const double distance = occupied_union ? 1.0 - sum / occupied_union : 1.0;
             if (distance < best) { best = distance; best_shift = shift; }
         }
         return {best, best_shift};
+    }
+
+    std::pair<double, int> compare(const Eigen::MatrixXf& query,
+                                  const Eigen::MatrixXf& map) const {
+        return compareNormalized(normalize(query), normalize(map));
     }
 };

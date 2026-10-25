@@ -8,3 +8,6 @@ benchmark_result.csv
 /docs/interviewer.md
 *.tar.gz
 .DS_Store
+
+__pycache__/
+!docs/experiments/**/benchmark_result.csv

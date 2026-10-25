@@ -1,0 +1,13 @@
+# 面试起点：Scan Context 召回，然后用 GICP 验证每个候选。
+# 真值仅供 benchmark 评分。
+sc_max_radius: 30.0
+sc_num_rings: 40
+sc_num_sectors: 120
+sc_intensity_weight: 1.0  # 两种归一化特征等权；不预置针对某张图调出的权重
+sc_grid_resolution: 1.0
+sc_sensor_height: 0.5
+sc_top_k: 10
+
+gicp_voxel: 0.25
+gicp_max_correspondence: 1.5
+gicp_max_iterations: 50

@@ -1,0 +1,6 @@
+scene,baseline_count,baseline_success,baseline_success_under_budget,baseline_median_ms,baseline_p95_ms,baseline_max_ms,baseline_over_budget,optimized_count,optimized_success,optimized_success_under_budget,optimized_median_ms,optimized_p95_ms,optimized_max_ms,optimized_over_budget
+anhui,20,11,11,1977.905,2404.592,2473.98,0,20,17,17,565.976,706.81395,755.149,0
+beijing,12,7,0,5028.77,5814.8144999999995,5938.9,12,12,12,12,1068.53,1768.4189999999996,2044.86,0
+funiu,20,3,0,5256.395,9179.764500000001,11137.8,19,20,19,19,1468.4,2140.3995,2202.9,0
+hefei,38,20,20,1836.925,2500.7104999999997,3064.01,1,38,37,37,546.9385,836.0645999999999,895.23,0
+niuniu,13,5,0,14826.3,16962.62,17182.1,13,13,9,9,2212.54,2420.4519999999998,2539.87,0

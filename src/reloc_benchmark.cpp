@@ -30,6 +30,8 @@ struct Row {
     double sc_distance = 0.0;
     int sc_rank = 0;
     int gicp_trials = 0;
+    int coarse_trials = 0;
+    Eigen::Matrix4f estimated_pose = Eigen::Matrix4f::Identity();
     double duration_ms = 0.0;
     std::string reason;
 };
@@ -86,7 +88,7 @@ double median(std::vector<double> values) {
 int main(int argc, char** argv) {
     try {
         std::string map_path, evalset, config_path;
-        double position_threshold = 0.2, yaw_threshold = 2.0;
+        double position_threshold = 0.2, yaw_threshold = 2.0, time_budget_ms = 3000.0;
         for (int i = 1; i < argc; ++i) {
             const std::string flag = argv[i];
             if (i + 1 >= argc) throw std::runtime_error("Missing value for " + flag);
@@ -96,11 +98,14 @@ int main(int argc, char** argv) {
             else if (flag == "--config") config_path = value;
             else if (flag == "--pos-thresh") position_threshold = std::stod(value);
             else if (flag == "--yaw-thresh") yaw_threshold = std::stod(value);
+            else if (flag == "--time-budget-ms") time_budget_ms = std::stod(value);
             else throw std::runtime_error("Unknown flag: " + flag);
         }
         if (map_path.empty() || evalset.empty() || config_path.empty()) {
             throw std::runtime_error("Usage: reloc_benchmark --map map.pcd --evalset DIR --config config.yaml");
         }
+        if (!std::isfinite(time_budget_ms) || time_budget_ms <= 0)
+            throw std::runtime_error("Time budget must be positive and finite");
         const YAML::Node yaml = YAML::LoadFile(config_path);
         BaselineConfig config;
         config.sc.radius = yaml["sc_max_radius"].as<double>();
@@ -109,10 +114,26 @@ int main(int argc, char** argv) {
         config.sc.intensity_weight = yaml["sc_intensity_weight"].as<double>();
         config.grid_resolution = yaml["sc_grid_resolution"].as<double>();
         config.sensor_height = yaml["sc_sensor_height"].as<double>();
-        config.sc_top_k = yaml["sc_top_k"].as<int>();
+        if (yaml["sc_top_k"]) config.coarse_candidates = yaml["sc_top_k"].as<int>();
         config.gicp_voxel = yaml["gicp_voxel"].as<double>();
         config.gicp_correspondence = yaml["gicp_max_correspondence"].as<double>();
         config.gicp_iterations = yaml["gicp_max_iterations"].as<int>();
+
+        if (yaml["query_budget_ms"]) config.query_budget_ms = yaml["query_budget_ms"].as<double>();
+        if (yaml["coarse_candidates"]) config.coarse_candidates = yaml["coarse_candidates"].as<int>();
+        if (yaml["fine_candidates"]) config.fine_candidates = yaml["fine_candidates"].as<int>();
+
+        if (yaml["geometric_candidates"]) config.geometric_candidates = yaml["geometric_candidates"].as<int>();
+
+        if (yaml["intensity_score_weight"]) config.intensity_score_weight = yaml["intensity_score_weight"].as<double>();
+
+        if (yaml["robust_refinement"]) config.robust_refinement = yaml["robust_refinement"].as<bool>();
+
+        if (yaml["sc_index_voxel"]) config.sc_index_voxel = yaml["sc_index_voxel"].as<double>();
+
+        if (yaml["upright_refinement"]) config.upright_refinement = yaml["upright_refinement"].as<bool>();
+
+        if (yaml["retrieval_threads"]) config.retrieval_threads = yaml["retrieval_threads"].as<int>();
 
         OfflineLocalizer localizer(config);
         const auto index_start = std::chrono::steady_clock::now();
@@ -146,6 +167,8 @@ int main(int argc, char** argv) {
             row.sc_rank = estimate.sc_rank;
             row.sc_distance = estimate.sc_distance;
             row.gicp_trials = estimate.gicp_trials;
+            row.coarse_trials = estimate.coarse_trials;
+            row.estimated_pose = estimate.pose;
             if (!estimate.valid) {
                 row.reason = "reloc_failed";
             } else {
@@ -165,16 +188,22 @@ int main(int argc, char** argv) {
 
         const std::string output = evalset + "/benchmark_result.csv";
         std::ofstream csv(output);
-        csv << "filename,success,reloc_ok,pos_err_m,yaw_err_deg,fitness,sc_rank,sc_distance,gicp_trials,time_ms,fail_reason\n";
+        csv << "filename,success,reloc_ok,pos_err_m,yaw_err_deg,fitness,sc_rank,sc_distance,gicp_trials,time_ms,fail_reason,coarse_trials,est_x,est_y,est_z,est_yaw_deg,est_pitch_deg,est_roll_deg\n";
         std::vector<double> durations;
         int successes = 0, wrong = 0, imprecise = 0, failed = 0;
+        int within_budget = 0, over_budget = 0;
         for (const auto& row : results) {
             csv << row.filename << ',' << row.success << ',' << row.localized << ','
                 << row.position_error << ',' << row.yaw_error << ',' << row.fitness << ','
                 << row.sc_rank << ',' << row.sc_distance << ',' << row.gicp_trials << ','
-                << row.duration_ms << ',' << row.reason << '\n';
+                << row.duration_ms << ',' << row.reason << ',' << row.coarse_trials << ','
+                << row.estimated_pose(0,3) << ',' << row.estimated_pose(1,3) << ',' << row.estimated_pose(2,3) << ','
+                << yaw(row.estimated_pose) << ',' << std::asin(-std::clamp(double(row.estimated_pose(2,0)),-1.0,1.0))*180/M_PI << ','
+                << std::atan2(row.estimated_pose(2,1),row.estimated_pose(2,2))*180/M_PI << '\n';
             durations.push_back(row.duration_ms);
             successes += row.success;
+            within_budget += row.success && row.duration_ms <= time_budget_ms;
+            over_budget += row.duration_ms > time_budget_ms;
             wrong += row.reason == "wrong_place";
             imprecise += row.reason == "imprecise";
             failed += row.reason == "reloc_failed" || row.reason == "load_query_failed";
@@ -182,6 +211,9 @@ int main(int argc, char** argv) {
         std::cout << "Summary: " << successes << '/' << results.size()
                   << " success, wrong_place=" << wrong << " imprecise=" << imprecise
                   << " reloc_failed=" << failed << " median_query_ms=" << median(durations)
+                  << " success_under_budget=" << within_budget << '/' << results.size()
+                  << " time_budget_ms=" << time_budget_ms << " over_budget=" << over_budget
+                  << " max_query_ms=" << *std::max_element(durations.begin(), durations.end())
                   << "\nCSV: " << output << '\n';
         return 0;
     } catch (const std::exception& error) {
